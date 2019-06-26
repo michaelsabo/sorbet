@@ -10,5 +10,8 @@ test_suite(
     tests = [
         _snapshot_test("partial/typed-ignore"),
         _snapshot_test("partial/require_relative"),
+
+        # fails due to cloning message in err.log
+        # _snapshot_test("total/empty"),
     ],
 )
