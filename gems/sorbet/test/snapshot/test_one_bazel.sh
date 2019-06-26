@@ -2,6 +2,8 @@
 
 # Runs a single srb init test from gems/sorbet/test/snapshot/{partial,total}/*
 
+shopt -s dotglob
+
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library https://github.com/bazelbuild/bazel/blob/defd737761be2b154908646121de47c30434ed51/tools/bash/runfiles/runfiles.bash
 set -euo pipefail
@@ -27,18 +29,20 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
-
 # ----- Option parsing -----
 
 # these positional arguments are supplied in snapshot.bzl
 ruby_package=$1
 test_name=$2
 
-if [[ "test_name" =~ "partial/*" ]]; then
+if [[ "${test_name}" =~ partial/* ]]; then
   is_partial=1
 else
   is_partial=
 fi
+
+echo "test_name:  ${test_name}"
+echo "is_partial: ${is_partial:-0}"
 
 # ----- Environment setup -----
 
@@ -57,7 +61,11 @@ export PATH
 
 repo_root="$PWD"
 
+source "gems/sorbet/test/snapshot/logging.sh"
+
 test_root="${repo_root}/gems/sorbet/test/snapshot/$2"
+
+actual="${test_root}/actual"
 
 srb="${repo_root}/gems/sorbet/bin/srb"
 
@@ -67,10 +75,16 @@ SRB_SORBET_EXE="$PWD/main/sorbet"
 HOME=$test_root
 export HOME
 
+
+# ----- Build the test sandbox -----
+
+cp -r "${test_root}/src" "$actual"
+
+
 # ----- Run the test -----
 
 (
-  cd $test_root/src
+  cd $actual
 
   # Setup the vendor/cache directory to include all gems required for any test
   mkdir vendor
@@ -82,9 +96,51 @@ export HOME
 
   bundle check
 
-  bundle exec ruby -e 'puts $:'
+  # Uses /dev/null for stdin so any binding.pry would exit immediately
+  # (otherwise, pry will be waiting for input, but it's impossible to tell
+  # because the pry output is hiding in the *.log files)
+  #
+  # note: redirects stderr before the pipe
+  if ! SRB_YES=1 bundle exec "$srb" init < /dev/null 2> "err.log" > "out.log"; then
+    error "├─ srb init failed."
+    error "├─ stdout (${test_root}/src/out.log):"
+    cat "${test_root}/src/out.log"
+    error "├─ stderr (${test_root}/src/err.log):"
+    cat "${test_root}/src/err.log"
+    error "└─ (end stderr)"
+    exit 1
+  fi
 
-  # run `srb init`
-  SRB_YES=1 bundle exec "$srb" init \
-    || find . -type f | xargs -L 1 -t bundle exec "$srb" tc --no-config --error-white-list 1000
+)
+
+(
+  cd $test_root
+
+  # ----- Check out.log -----
+
+  info "Checking output log"
+  if [ "$is_partial" = "" ] || [ -f "expected/out.log" ]; then
+    out_filtered="$(mktemp)"
+    sed -e 's/with [0-9]* modules and [0-9]* aliases/with X modules and Y aliases/' \
+      < "actual/out.log" \
+      | sed -e "s,${TMPDIR}[^ ]*/\([^/]*\),<tmp>/\1,g" \
+      > "$out_filtered"
+    mv "$out_filtered" "actual/out.log"
+    if ! diff -u "expected/out.log" "actual/out.log"; then
+      error "├─ expected out.log did not match actual out.log"
+      error "└─ see output above."
+      exit 1
+    fi
+  fi
+
+  # ----- Check err.log -----
+
+  if [ "$is_partial" = "" ] || [ -f "expected/err.log" ]; then
+    if ! diff -u "expected/err.log" "actual/err.log"; then
+      error "├─ expected err.log did not match actual err.log"
+      error "└─ see output above."
+      exit 1
+    fi
+  fi
+
 )

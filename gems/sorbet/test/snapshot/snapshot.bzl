@@ -31,7 +31,15 @@ def snapshot_test(test_path):
             "@gems//bundler:bundle",
             "@gems//bundler:bundler",
             "@gems//bundler:bundle-env",
-        ] + native.glob(["{}/**/*".format(test_path)]),
+
+            # this will force a check on the presence of the src directory
+            "{}/src/Gemfile.lock".format(test_path),
+        ] + native.glob([
+            "{}/**/*".format(test_path)
+            ],
+            exclude = [
+                "{}/src/Gemfile.lock".format(test_path),
+            ]),
         deps = [
             ":logging",
         ],
@@ -39,7 +47,7 @@ def snapshot_test(test_path):
             "ruby_2_4_3",
             test_path,
         ],
-        timeout = "short",
+        timeout = "moderate",
     )
 
     return test_name
