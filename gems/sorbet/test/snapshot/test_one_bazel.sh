@@ -63,22 +63,22 @@ repo_root="$PWD"
 
 source "gems/sorbet/test/snapshot/logging.sh"
 
-test_root="${repo_root}/gems/sorbet/test/snapshot/$2"
+test_dir="${repo_root}/gems/sorbet/test/snapshot/$2"
 
-actual="${test_root}/actual"
+actual="${test_dir}/actual"
 
 srb="${repo_root}/gems/sorbet/bin/srb"
 
 # Use the sorbet executable built by bazel
 SRB_SORBET_EXE="$PWD/main/sorbet"
 
-HOME=$test_root
+HOME=$test_dir
 export HOME
 
 
 # ----- Build the test sandbox -----
 
-cp -r "${test_root}/src" "$actual"
+cp -r "${test_dir}/src" "$actual"
 
 
 # ----- Run the test -----
@@ -103,10 +103,10 @@ cp -r "${test_root}/src" "$actual"
   # note: redirects stderr before the pipe
   if ! SRB_YES=1 bundle exec "$srb" init < /dev/null 2> "err.log" > "out.log"; then
     error "├─ srb init failed."
-    error "├─ stdout (${test_root}/src/out.log):"
-    cat "${test_root}/src/out.log"
-    error "├─ stderr (${test_root}/src/err.log):"
-    cat "${test_root}/src/err.log"
+    error "├─ stdout (out.log):"
+    cat "out.log"
+    error "├─ stderr (err.log):"
+    cat "err.log"
     error "└─ (end stderr)"
     exit 1
   fi
@@ -114,7 +114,7 @@ cp -r "${test_root}/src" "$actual"
 )
 
 (
-  cd $test_root
+  cd $test_dir
 
   # ----- Check out.log -----
 
@@ -143,4 +143,44 @@ cp -r "${test_root}/src" "$actual"
     fi
   fi
 
+  # ----- Check sorbet/ -----
+
+  # FIXME: Removing hidden-definitions in actual to hide them from diff output.
+  rm -rf "$actual/src/sorbet/rbi/hidden-definitions"
+
+  diff_total() {
+    if ! diff -ur "$test_dir/expected/sorbet" "$actual/src/sorbet"; then
+      error "├─ expected sorbet/ folder did not match actual sorbet/ folder"
+      error "└─ see output above. Run with --update to fix."
+      exit 1
+    fi
+  }
+
+  diff_partial() {
+    set +e
+    diff -ur "$test_dir/expected/sorbet" "$actual/src/sorbet" | \
+      grep -vF "Only in $actual" \
+      > "$actual/src/partial-diff.log"
+    set -e
+
+    # File exists and is non-empty
+    if [ -s "$actual/src/partial-diff.log" ]; then
+      cat "$actual/src/partial-diff.log"
+      error "├─ expected sorbet/ folder did not match actual sorbet/ folder"
+      error "└─ see output above."
+      exit 1
+    fi
+  }
+
+  if [ "$is_partial" = "" ]; then
+    diff_total
+  elif [ -d "$test_dir/expected/sorbet" ]; then
+    diff_partial
+  else
+    # It's fine for a partial test to not have an expected dir.
+    # It means the test only cares about the exit code of srb init.
+    true
+  fi
+
+  success "└─ test passed."
 )

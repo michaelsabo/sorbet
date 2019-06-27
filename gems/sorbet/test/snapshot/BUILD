@@ -7,11 +7,24 @@ sh_library(
 
 test_suite(
     name = "snapshot",
-    tests = [
-        _snapshot_test("partial/typed-ignore"),
-        _snapshot_test("partial/require_relative"),
+    tests =
+        _snapshot_tests(glob([
+            "partial/*",
+            "total/*",
+        ], exclude = [
+            # TIMEOUT
+            "partial/stupidedi",
 
-        # fails due to cloning message in err.log
-        # _snapshot_test("total/empty"),
-    ],
+            # FAILED
+            "partial/codecov",
+            "partial/partially-sigged",
+            "partial/rails-double-require",
+            "partial/rbi_list",
+            "partial/webmock",
+            "total/empty",
+        ],
+
+        # We only want to match directories with this glob
+        exclude_directories = 0,
+    )),
 )
