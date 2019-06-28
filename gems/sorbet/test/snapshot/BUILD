@@ -14,14 +14,14 @@ test_suite(
         ], exclude = [
             # TIMEOUT
             "partial/stupidedi",
+            "partial/rbi_list",
 
             # FAILED
             "partial/codecov",
             "partial/partially-sigged",
             "partial/rails-double-require",
-            "partial/rbi_list",
             "partial/webmock",
-            "total/empty",
+            # "total/empty",
         ],
 
         # We only want to match directories with this glob

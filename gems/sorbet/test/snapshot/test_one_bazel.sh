@@ -75,6 +75,9 @@ SRB_SORBET_EXE="$PWD/main/sorbet"
 HOME=$test_dir
 export HOME
 
+XDG_CACHE_HOME="${test_dir}/cache"
+export XDG_CACHE_HOME
+
 
 # ----- Build the test sandbox -----
 
@@ -122,8 +125,10 @@ cp -r "${test_dir}/src" "$actual"
   if [ "$is_partial" = "" ] || [ -f "expected/out.log" ]; then
     out_filtered="$(mktemp)"
     sed -e 's/with [0-9]* modules and [0-9]* aliases/with X modules and Y aliases/' \
+      -e "s,${TMPDIR}[^ ]*/\([^/]*\),<tmp>/\1,g" \
+      -e "s,${XDG_CACHE_HOME},<cache>,g" \
+      -e "s,${HOME},<home>,g" \
       < "actual/out.log" \
-      | sed -e "s,${TMPDIR}[^ ]*/\([^/]*\),<tmp>/\1,g" \
       > "$out_filtered"
     mv "$out_filtered" "actual/out.log"
     if ! diff -u "expected/out.log" "actual/out.log"; then
@@ -136,6 +141,12 @@ cp -r "${test_dir}/src" "$actual"
   # ----- Check err.log -----
 
   if [ "$is_partial" = "" ] || [ -f "expected/err.log" ]; then
+    err_filtered="$(mktemp)"
+    sed -e "s,${TMPDIR}[^ ]*/\([^/]*\),<tmp>/\1,g" \
+      -e "s,${XDG_CACHE_HOME},<cache>,g" \
+      -e "s,${HOME},<home>,g" \
+      < "actual/err.log" > "$err_filtered"
+    mv "$err_filtered" "actual/err.log"
     if ! diff -u "expected/err.log" "actual/err.log"; then
       error "├─ expected err.log did not match actual err.log"
       error "└─ see output above."
@@ -146,26 +157,28 @@ cp -r "${test_dir}/src" "$actual"
   # ----- Check sorbet/ -----
 
   # FIXME: Removing hidden-definitions in actual to hide them from diff output.
-  rm -rf "$actual/src/sorbet/rbi/hidden-definitions"
+  rm -rf "actual/sorbet/rbi/hidden-definitions"
 
   diff_total() {
-    if ! diff -ur "$test_dir/expected/sorbet" "$actual/src/sorbet"; then
+    info "├─ checking for total match"
+    if ! diff -ur "expected/sorbet" "actual/sorbet"; then
       error "├─ expected sorbet/ folder did not match actual sorbet/ folder"
-      error "└─ see output above. Run with --update to fix."
+      error "└─ see output above."
       exit 1
     fi
   }
 
   diff_partial() {
+    info "├─ checking for partial match"
+
     set +e
-    diff -ur "$test_dir/expected/sorbet" "$actual/src/sorbet" | \
-      grep -vF "Only in $actual" \
-      > "$actual/src/partial-diff.log"
+    diff -ur "expected/sorbet" "actual/sorbet" | \
+      grep -vF "Only in actual" > "partial-diff.log"
     set -e
 
     # File exists and is non-empty
-    if [ -s "$actual/src/partial-diff.log" ]; then
-      cat "$actual/src/partial-diff.log"
+    if [ -s "partial-diff.log" ]; then
+      cat "partial-diff.log"
       error "├─ expected sorbet/ folder did not match actual sorbet/ folder"
       error "└─ see output above."
       exit 1
@@ -174,7 +187,7 @@ cp -r "${test_dir}/src" "$actual"
 
   if [ "$is_partial" = "" ]; then
     diff_total
-  elif [ -d "$test_dir/expected/sorbet" ]; then
+  elif [ -d "expected/sorbet" ]; then
     diff_partial
   else
     # It's fine for a partial test to not have an expected dir.
