@@ -16,12 +16,13 @@ test_suite(
             "partial/stupidedi",
             "partial/rbi_list",
 
-            # FAILED
-            "partial/codecov",
-            "partial/partially-sigged",
-            "partial/rails-double-require",
+            # openssl
             "partial/webmock",
-            # "total/empty",
+            "partial/partially-sigged",
+
+            # native extensions
+            "partial/codecov",
+            "partial/rails-double-require",
         ],
 
         # We only want to match directories with this glob
