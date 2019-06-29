@@ -141,18 +141,6 @@ module Opus::Types::Test
 
     describe 'declarations' do
       describe '.checked' do
-        it 'raises when using .on_failure' do
-          err = assert_raises(RuntimeError) do
-            mod = Module.new do
-              extend T::Sig
-              sig {void.on_failure(notify: 'foo')}
-              def self.test_method; end
-            end
-            mod.test_method
-          end
-          assert_match(/\.on_failure API is unstable/, err.message)
-        end
-
         it 'raises RuntimeError with invalid level' do
           err = assert_raises(ArgumentError) do
             mod = Module.new do
@@ -361,7 +349,6 @@ module Opus::Types::Test
       end
 
       it 'forbids multiple .on_failure calls' do
-        skip
         ex = assert_raises do
           Class.new do
             extend T::Sig
@@ -373,7 +360,6 @@ module Opus::Types::Test
       end
 
       it 'forbids .on_failure and then .checked' do
-        skip
         ex = assert_raises do
           Class.new do
             extend T::Sig
@@ -385,7 +371,6 @@ module Opus::Types::Test
       end
 
       it 'forbids .checked and then .on_failure' do
-        skip
         ex = assert_raises do
           Class.new do
             extend T::Sig
@@ -397,7 +382,6 @@ module Opus::Types::Test
       end
 
       it 'forbids empty notify' do
-        skip
         ex = assert_raises do
           Class.new do
             extend T::Sig
@@ -409,7 +393,6 @@ module Opus::Types::Test
       end
 
       it 'forbids unpassed notify' do
-        skip
         ex = assert_raises(ArgumentError) do
           Class.new do
             extend T::Sig
@@ -432,7 +415,6 @@ module Opus::Types::Test
       end
 
       it 'forbids .generated and then .on_failure' do
-        skip
         ex = assert_raises do
           Class.new do
             extend T::Sig
